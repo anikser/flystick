@@ -1,7 +1,7 @@
 import pygame.joystick
 
 
-class Ch(object):
+class Ch:
     """Implements channel mixing.
 
     Mix examples:
@@ -28,6 +28,7 @@ class Ch(object):
     instead of the normal [-1..1]:
         +stick.axis(0)
     """
+
     def __init__(self, fn):
         self.fn = fn
 
@@ -62,13 +63,14 @@ class Ch(object):
             raise ValueError("Invalid weight %r" % (x,))
 
     def __pos__(self):
-        return Ch(lambda evts: .5 + self.fn(evts) / 2)
+        return Ch(lambda evts: 0.5 + self.fn(evts) / 2)
 
 
 class Joystick(object):
     """A base class for setting up mapping of different axes and buttons
     of a joystick.
     """
+
     def __init__(self, joy_id):
         pygame.joystick.init()
         self._joy = pygame.joystick.Joystick(joy_id)
@@ -78,29 +80,34 @@ class Joystick(object):
         return Ch(lambda evts: self._joy.get_axis(axis))
 
     def button(self, button):
-        return Ch(lambda evts: 1. if self._joy.get_button(button) else -1.)
+        return Ch(lambda evts: 1.0 if self._joy.get_button(button) else -1.0)
 
-    def hat_switch(self, hat, axis, **switch):
+    def hat_switch(self, hat, axis, positions, initial=0):
         def hat_values(hats):
             for evt in hats:
-                if evt.joy == self._joy.get_id() \
-                   and evt.hat == hat:
+                if evt.joy == self._joy.get_id() and evt.hat == hat:
                     yield evt.value[axis]
-        return Ch(Switch(evt_map=lambda (clicks, hats): hat_values(hats),
-                         **switch))
+
+        return Switch(
+            evt_map=lambda hats: hat_values(hats),
+            positions=positions,
+            initial=initial,
+        )
 
 
-class Switch(object):
+class Switch:
     """Models a virtual multi-position switch. Excellent for example
     trims and flight mode control.
     """
-    def __init__(self, evt_map, positions, initial=0):
+
+    def __init__(self, evt_map, positions, initial):
         self.evt_map = evt_map
         self.positions = positions
         self.pos = initial
 
     def __call__(self, evts):
-        for value in self.evt_map(evts):
+        (_, hats) = evts
+        for value in self.evt_map(hats):
             if value > 0:
                 self.pos = (self.pos + 1) % self.positions
             elif value < 0:
@@ -108,7 +115,7 @@ class Switch(object):
                 if self.pos < 0:
                     self.pos += self.positions
             # ignore zero
-        return 2. * self.pos / (self.positions - 1) - 1
+        return 2.0 * self.pos / (self.positions - 1) - 1
 
 
 def XDot(center):
@@ -124,6 +131,7 @@ def XDot(center):
 
 def YDot(col):
     """A dot moving vertically."""
+
     def render(value, scrollphat):
         y = 2 + int(round(value * 2))
         scrollphat.set_pixel(col, 4 - y, True)
@@ -135,6 +143,7 @@ class XYDot(object):
     """A dot moving both horizontally and vertically: visualizes two
     axes on a square area.
     """
+
     def __init__(self, col):
         self.col = col
         self.x = self.y = None
@@ -147,6 +156,7 @@ class XYDot(object):
             else:
                 scrollphat.set_pixel(x, 4 - self.y, True)
                 self.x = self.y = None
+
         return render
 
     def vertical(self):
@@ -157,6 +167,7 @@ class XYDot(object):
             else:
                 scrollphat.set_pixel(self.x, 4 - y, True)
                 self.x = self.y = None
+
         return render
 
 
